@@ -1,0 +1,105 @@
+3.1 Handling Missing Values
+
+As per the proposal:
+
+Dropping company and agent columns
+Imputing children with zero
+Imputing country with its mode
+# Drop high-nullity columns
+df = df.drop(columns=['company', 'agent'])
+
+# Impute children with 0
+df['children'] = df['children'].fillna(0)
+
+# Impute country with mode
+mode_country = df['country'].mode()[0]
+df['country'] = df['country'].fillna(mode_country)
+
+print("Missing values after imputation:")
+print(df.isnull().sum()[df.isnull().sum() > 0])
+
+
+3.2 Date Engineering
+
+Combine arrival_date_year, arrival_date_month, and arrival_date_day_of_month into a single datetime column.
+
+month_map = {
+    'January': 1, 'February': 2, 'March': 3, 'April': 4,
+    'May': 5, 'June': 6, 'July': 7, 'August': 8,
+    'September': 9, 'October': 10, 'November': 11, 'December': 12
+}
+df['arrival_date_month_num'] = df['arrival_date_month'].map(month_map)
+
+df['arrival_date'] = pd.to_datetime(
+    df['arrival_date_year'].astype(str) + '-' +
+    df['arrival_date_month_num'].astype(str) + '-' +
+    df['arrival_date_day_of_month'].astype(str)
+)
+
+df = df.drop(columns=['arrival_date_month_num'])
+print("New arrival_date column sample:")
+print(df['arrival_date'].head())
+
+3.3 Feature Engineering
+
+Create total_nights and room_mismatch.
+
+# Total nights stayed
+df['total_nights'] = df['stays_in_weekend_nights'] + df['stays_in_week_nights']
+
+# Room mismatch flag
+df['room_mismatch'] = (df['assigned_room_type'] != df['reserved_room_type']).astype(int)
+
+print("New features: total_nights, room_mismatch")
+df[['total_nights', 'room_mismatch']].describe()
+
+3.4 Outlier Treatment
+
+Remove extreme outlier in adr (> €5,000). Apply Winsorization at the 1st and 99th percentiles for key numerical columns.
+
+# Remove extreme ADR outlier
+df = df[df['adr'] <= 5000]
+
+# Winsorize key numerical columns
+numerical_cols = ['lead_time', 'adr', 'total_nights', 'booking_changes',
+                  'total_of_special_requests', 'days_in_waiting_list']
+
+for col in numerical_cols:
+    lower_bound = df[col].quantile(0.01)
+    upper_bound = df[col].quantile(0.99)
+    df[col] = np.clip(df[col], lower_bound, upper_bound)
+
+print(f"Dataset shape after outlier treatment: {df.shape}")
+
+
+3.5 Categorical Encoding
+
+Label encode hotel, meal, market_segment, deposit_type, customer_type, reserved_room_type.
+
+categorical_to_encode = ['hotel', 'meal', 'market_segment', 'deposit_type',
+                          'customer_type', 'reserved_room_type']
+le_dict = {}
+
+for col in categorical_to_encode:
+    le = LabelEncoder()
+    df[col + '_encoded'] = le.fit_transform(df[col])
+    le_dict[col] = le
+
+print('Encoded columns added:', [c + '_encoded' for c in categorical_to_encode])
+
+3.6 Normalization
+
+Standardize numerical features prior to clustering. Prepare a separate dataframe df_scaled for clustering.
+
+scaler = StandardScaler()
+features_to_scale = ['lead_time', 'adr', 'total_nights',
+                     'booking_changes', 'total_of_special_requests']
+
+df_scaled = df.copy()
+df_scaled[features_to_scale] = scaler.fit_transform(df[features_to_scale])
+
+# Save cleaned dataset
+processed_dir = r"c:\Users\Dell\Desktop\Python Coursework\PUSL2077-DataScience-coursework\data\processed"
+os.makedirs(processed_dir, exist_ok=True)
+df.to_csv(os.path.join(processed_dir, 'hotel_bookings_cleaned.csv'), index=False)
+print("Cleaned dataset saved to data/processed/")
