@@ -1,8 +1,0 @@
-# Total nights stayed
-df['total_nights'] = df['stays_in_weekend_nights'] + df['stays_in_week_nights']
-
-# Room mismatch flag
-df['room_mismatch'] = (df['assigned_room_type'] != df['reserved_room_type']).astype(int)
-
-print("New features: total_nights, room_mismatch")
-df[['total_nights', 'room_mismatch']].describe()
